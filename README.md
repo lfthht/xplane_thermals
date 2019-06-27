@@ -1,13 +1,13 @@
 xplane_thermals
 ===============
 
-Author: Alex Ferrer
+Author: Alex Ferrer, Extended by Julius Brockelmann
 License: GPL 2014
 
 
 X-Plane plugin to generate more realistic thermals 
 
-The current X-Plane (Ver 10.30+) thermal model is quite simplistic. This is an attempt to create a plugin that simulates more realistic thermals.
+The current X-Plane (Ver 11.30+) thermal model is quite simplistic. This is an attempt to create a plugin that simulates more realistic thermals.
 
 Basic concept:
 Create a fixed or random list of thermals with lat,lon,thermal diameter, thermal strength.
@@ -75,7 +75,12 @@ V 0.2 (current) Is already quite usable. It has a matrix of 10000x10000 ~70nm^2 
 V 0.1 it works based on a 10x10 matrix that repeats itself. it works, but is just a sucky proof of concept.
 
 
-About the author
+About Alex Ferrer
 ----------------
 
 I have about 20 years experience flying thermals on Gliders, Paragliders and Ultralight aircrafts. I've owned and flown (sp?) many diferent gliders from a very slow 1-26 to ASK-21.  I've flown extensively on the Texas plains and on the mountains of Peru, so I feel I've got a good idea of how a thermal should feel when you fly a glider on X-Plane. I hope that this plugin helps improve the glider flying experience on X-plane for all. 
+
+About Julius Brockelmann
+----------------
+
+I am a Motion Designer from Hamburg Germany, flight sims are my hobby since 20 years.The immersive experience of a flight sim is really important for me and physics play a major part in a good sim experience. This was basically the motivation to extend Alex's code and make it more userfriendly.
