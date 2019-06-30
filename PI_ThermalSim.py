@@ -1,9 +1,9 @@
 """
-Thermal simulator  Ver .03  
+Thermal simulator  Ver .04  
   ** Works on Xplane 10.30 and above only **
   
-  The plugin then reads the lift value of the plane current position and applies
-  the lift & roll values. 
+  The plugin then reads the lift value of the plane current position and
+  sets the lift & roll values. 
   
   Author: Alex Ferrer
   License: GPL 
@@ -14,10 +14,13 @@ import world
 from XPLMDefs import *
 from EasyDref import EasyDref
 
-#thermal modeling tools
+# thermal modeling tools
 from thermal_model import CalcThermal
 from thermal_model import DrawThermal
 from thermal_model import DrawThermalMap
+from thermal_model import DrawCloud
+from thermal_model import DrawCloudMap
+
 from thermal_model import MakeRandomThermalMap
 from thermal_model import MakeCSVThermalMap
 
@@ -29,14 +32,14 @@ import random
 from random import randrange, seed
 import math
 
-#for graphics
+# for graphics
 from XPLMDisplay import *
 from XPLMGraphics import * 
 
-#for yprobe
+# for yprobe
 from XPLMScenery import *
 
-#for menus
+# for menus
 from XPLMMenus import *
 from XPLMPlugin import *
 from XPLMMenus import *
@@ -51,10 +54,9 @@ csvThermal = 3
 aboutThermal = 4
 configGlider = 5
 
-#add random seed for multiplayer session - just press "reset seed" and then "generate thermals"
+# add random seed for multiplayer session - just press "reset seed" and then 
+# "generate thermals"
 seed_number = world.seed_number
-
-
 
 def xplane_world_to_local(lat, lon, alt):
     x,y,z = XPLMWorldToLocal(lat,lon,alt)
@@ -74,8 +76,8 @@ class PythonInterface:
     def XPluginStart(self):
         global gOutputFile, gPlaneLat, gPlaneLon, gPlaneEl
         
-        #----- menu stuff --------------------------
-        #init menu control params       
+        # ----- menu stuff --------------------------
+        # init menu control params       
         self.TCMenuItem = 0
         self.CSVMenuItem = 0
         self.CGMenuItem = 0
@@ -91,7 +93,7 @@ class PythonInterface:
         XPLMAppendMenuItem(self.myMenu, "Generate CSV Thermals", csvThermal, 1)
         XPLMAppendMenuItem(self.myMenu, "Configure Glider", configGlider, 1)
         XPLMAppendMenuItem(self.myMenu, "About", aboutThermal, 1)
-        #-------------------------------------------------
+        # -------------------------------------------------
         
         world.thermals_visible = False
         
@@ -104,21 +106,21 @@ class PythonInterface:
         self.PlaneLat  = XPLMFindDataRef("sim/flightmodel/position/latitude")
         self.PlaneLon  = XPLMFindDataRef("sim/flightmodel/position/longitude")
         self.PlaneElev = XPLMFindDataRef("sim/flightmodel/position/elevation")
-        self.PlaneHdg  = XPLMFindDataRef("sim/flightmodel/position/psi") #plane heading
-        self.PlaneRol  = XPLMFindDataRef("sim/flightmodel/position/phi") #plane roll
+        self.PlaneHdg  = XPLMFindDataRef("sim/flightmodel/position/psi") # plane heading
+        self.PlaneRol  = XPLMFindDataRef("sim/flightmodel/position/phi") # plane roll
         
-        self.WindSpeed = XPLMFindDataRef("sim/weather/wind_speed_kt[0]") #wind speed at surface
-        self.WindDir   = XPLMFindDataRef("sim/weather/wind_direction_degt[0]") #wind direction
+        self.WindSpeed = XPLMFindDataRef("sim/weather/wind_speed_kt[0]") # wind speed at surface
+        self.WindDir   = XPLMFindDataRef("sim/weather/wind_direction_degt[0]") # wind direction
         
-        #is the sim paused?
+        # is the sim paused?
         self.runningTime  = XPLMFindDataRef("sim/time/total_running_time_sec")
-        self.sim_time = 0 
+        self.sim_time = 0
         
-        #sun pitch from flat in OGL coordinates degrees, for thermal strength calculation
+        # sun pitch from flat in OGL coordinates degrees, for thermal strength calculation
         # from zero to 90 at 12pm in summer near the equator .. 
         self.SunPitch  = XPLMFindDataRef('sim/graphics/scenery/sun_pitch_degrees')
-        #temperature_sealevel_c
-        #dewpoi_sealevel_c
+        # temperature_sealevel_c
+        # dewpoi_sealevel_c
         
         # terrain probe to test for height and water
         world.probe = XPLMCreateProbe(xplm_ProbeY)
@@ -172,10 +174,7 @@ class PythonInterface:
     def LoadObject(self, fname, ref):
         self.Object = XPLMLoadObject(fname)        
      
-    def DrawObject(self, inPhase, inIsBefore, inRefcon):
-        if not world.thermals_visible :  # exit if visibility is off !
-            return 1
-    
+    def DrawObject(self, inPhase, inIsBefore, inRefcon):  
         self.LoadObjectCB = self.LoadObject
         XPLMLookupObjects(self, self.ObjectPath, 0, 0, self.LoadObjectCB, 0)  
         
@@ -183,7 +182,12 @@ class PythonInterface:
         if world.world_update :
            lat = XPLMGetDataf(self.PlaneLat)
            lon = XPLMGetDataf(self.PlaneLon)
-           self.locations = DrawThermalMap(lat,lon)   #get the locations where to draw the objects..
+
+           if not world.thermals_visible :  # if visibility is off, only draw clouds at cloudbase
+               self.locations = DrawCloudMap(lat,lon)   #get the locations where to draw the Cloud objects..
+           else:
+               self.locations = DrawThermalMap(lat,lon)   #get the locations where to draw the thermal Marker objects..
+
            world.world_update = False
            #print "number of draw objects = ", len(self.locations)
            
@@ -231,11 +235,11 @@ class PythonInterface:
         lift_val = lift_val * sun_factor
         
         '''----------------------------- for fine tuning!!! -----------------------'''
-        #lift_val = 500
-        #roll_val = 0
+        # lift_val = 500
+        # roll_val = 0
         '''------------------------------------------------------------------------'''
 
-        #apply the force to the airplanes lift.value dataref
+        # apply the force to the airplanes lift.value dataref
         lval = lift_val * world.lift_factor + self.lift.value  
         self.lift.value = lval  
         
@@ -248,14 +252,30 @@ class PythonInterface:
         tval = self.thrust.value
         self.thrust.value = (- world.thrust_factor) * lift_val + tval    
         
-        #apply a roll to the plane 
+        # apply a roll to the plane 
         rval = roll_val * world.roll_factor + self.roll.value 
         self.roll.value = rval
         
-        #Terrain probe -------
+        # Terrain probe -------
         self.probe = XPLMCreateProbe(xplm_ProbeY)
         
+                #refresh thermals on given time 
         
+        #Check if it is time to referesh the thermal map
+        if  (self.sim_time - world.thermal_map_start_time) > (world.thermal_refresh_time * 60) :
+            lat = XPLMGetDataf(self.PlaneLat)
+            lon = XPLMGetDataf(self.PlaneLon)
+            world.thermal_dict = MakeRandomThermalMap(self.sim_time,
+                               lat,lon,
+                               world.thermal_power,
+                               world.thermal_density,
+                               world.thermal_size)
+
+            world.world_update = True 
+        
+
+
+
         # set the next callback time in +n for # of seconds and -n for # of Frames
         return .01 # works good on my (pretty fast) machine..
 
@@ -264,16 +284,10 @@ class PythonInterface:
 
 
 
-
-
     #                        M E N U   S T U F F 
 
 
-
-
-
-
-    #------------------------------------ menu stuff  from here on ----------------------------------    
+    # ------------------------------------ menu stuff  from here on ----------------------------------    
 
     def MyMenuHandlerCallback(self, inMenuRef, inItemRef):
         if (inItemRef == toggleThermal):
@@ -284,7 +298,7 @@ class PythonInterface:
             print "show thermal config box "
             if (self.TCMenuItem == 0):
                 print " create the thermal config box "
-                self.CreateTCWindow(100, 550, 550, 330)
+                self.CreateTCWindow(100, 600, 600, 400)
                 self.TCMenuItem = 1
             else:
                 if(not XPIsWidgetVisible(self.TCWidget)):
@@ -343,28 +357,45 @@ class PythonInterface:
             if (inParam1 == self.TGenerate_button):
                 print "Generate" 
                 print world.seed_number
+                print "minimum separation between thermals "
+                print world.thermal_distance
                 random.seed(world.seed_number)
                 lat = XPLMGetDataf(self.PlaneLat)
                 lon = XPLMGetDataf(self.PlaneLon)
-                #world.cloud_streets = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
+                # world.cloud_streets = XPGetWidgetProperty(self.enableCheck, xpProperty_ButtonState, None)
                                                        # lat,lon,stregth,count
-                world.thermal_dict = MakeRandomThermalMap(lat,lon,world.thermal_power,world.thermal_density,world.thermal_size)    
+                world.thermal_dict = MakeRandomThermalMap(self.sim_time,
+                               lat,lon,
+                               world.thermal_power,
+                               world.thermal_density,
+                               world.thermal_size)    
                 world.world_update = True
                 return 1
                 
 
         
         if (inMessage == xpMsg_ScrollBarSliderPositionChanged):
-            #Thermal Tops
+            # Thermal Tops
             val = XPGetWidgetProperty(self.TTops_scrollbar, xpProperty_ScrollBarSliderPosition, None)
             XPSetWidgetDescriptor(self.TTops_value, str(val))
             world.thermal_tops = int( val * world.f2m )
             
-            #Thermal Density
+            # Thermal Density
             val = XPGetWidgetProperty(self.TDensity_scrollbar, xpProperty_ScrollBarSliderPosition, None)
             XPSetWidgetDescriptor(self.TDensity_value, str(val))
             world.thermal_density = val
             
+            # Minimum Distance Between  Thermals
+            val = XPGetWidgetProperty(self.TDistance_scrollbar, xpProperty_ScrollBarSliderPosition, None)
+            XPSetWidgetDescriptor(self.TDistance_value, str(val))
+            world.thermal_distance =  val 
+
+            # Thermals refresh time
+            val = XPGetWidgetProperty(self.TRefresh_scrollbar, xpProperty_ScrollBarSliderPosition, None)
+            XPSetWidgetDescriptor(self.TRefresh_value, str(val))
+            world.thermal_refresh_time =  val 
+
+
             #Thermal Size
             val = XPGetWidgetProperty(self.TSize_scrollbar, xpProperty_ScrollBarSliderPosition, None)
             XPSetWidgetDescriptor(self.TSize_value, str(val))
@@ -393,7 +424,7 @@ class PythonInterface:
     def CreateTCWindow(self, x, y, w, h):
         x2 = x + w
         y2 = y - h
-        Title = "Thermal generator Configuration" 
+        Title = "Thermal Generator Configuration" 
         
         #create the window
         self.TCWidget = XPCreateWidget(x, y, x2, y2, 1, Title, 1,     0, xpWidgetClass_MainWindow)        
@@ -413,6 +444,32 @@ class PythonInterface:
         XPSetWidgetProperty(self.TTops_scrollbar, xpProperty_ScrollBarPageAmount,500)        
         XPSetWidgetProperty(self.TTops_scrollbar, xpProperty_ScrollBarSliderPosition, int(world.thermal_tops*world.m2f) )               
         XPSetWidgetDescriptor(self.TTops_value, str( int(world.thermal_tops*world.m2f) ))
+        y -=32
+
+        # Thermal Distance
+        self.TDistance_label1 = XPCreateWidget(x+60,  y-80, x+140, y-102,1,"Thermals Separation", 0, self.TCWidget, xpWidgetClass_Caption)
+        self.TDistance_label2 = XPCreateWidget(x+375, y-80, x+410, y-102,1,"Meters", 0, self.TCWidget, xpWidgetClass_Caption)
+        #define scrollbar
+        self.TDistance_value = XPCreateWidget(x+260, y-68, x+330, y-82,1,"  0", 0, self.TCWidget, xpWidgetClass_Caption)
+        self.TDistance_scrollbar = XPCreateWidget(x+170, y-80, x+370, y-102, 1, "", 0,self.TCWidget,xpWidgetClass_ScrollBar)
+        XPSetWidgetProperty(self.TDistance_scrollbar, xpProperty_ScrollBarMin, 100);
+        XPSetWidgetProperty(self.TDistance_scrollbar, xpProperty_ScrollBarMax, 2000);
+        XPSetWidgetProperty(self.TDistance_scrollbar, xpProperty_ScrollBarPageAmount,100)        
+        XPSetWidgetProperty(self.TDistance_scrollbar, xpProperty_ScrollBarSliderPosition, int(world.thermal_distance) )               
+        XPSetWidgetDescriptor(self.TDistance_value, str( int(world.thermal_distance) ))
+        y -=32
+
+        # Thermal map Refresh time
+        self.TRefresh_label1 = XPCreateWidget(x+60,  y-80, x+140, y-102,1,"Thermals Refresh", 0, self.TCWidget, xpWidgetClass_Caption)
+        self.TRefresh_label2 = XPCreateWidget(x+375, y-80, x+410, y-102,1,"Minutes", 0, self.TCWidget, xpWidgetClass_Caption)
+        #define scrollbar
+        self.TRefresh_value = XPCreateWidget(x+260, y-68, x+330, y-82,1,"  0", 0, self.TCWidget, xpWidgetClass_Caption)
+        self.TRefresh_scrollbar = XPCreateWidget(x+170, y-80, x+370, y-102, 1, "", 0,self.TCWidget,xpWidgetClass_ScrollBar)
+        XPSetWidgetProperty(self.TRefresh_scrollbar, xpProperty_ScrollBarMin, 10);
+        XPSetWidgetProperty(self.TRefresh_scrollbar, xpProperty_ScrollBarMax, 200);
+        XPSetWidgetProperty(self.TRefresh_scrollbar, xpProperty_ScrollBarPageAmount,20)        
+        XPSetWidgetProperty(self.TRefresh_scrollbar, xpProperty_ScrollBarSliderPosition, int(world.thermal_refresh_time) )               
+        XPSetWidgetDescriptor(self.TRefresh_value, str( int(world.thermal_refresh_time) ))
         y -=32
 
         # Thermal Density
