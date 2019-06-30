@@ -95,7 +95,7 @@ class PythonInterface:
         XPLMAppendMenuItem(self.myMenu, "About", aboutThermal, 1)
         # -------------------------------------------------
         
-        world.thermals_visible = True
+        world.thermals_visible = False
         
         self.Name = "ThermalSim2"
         self.Sig =  "AlexFerrer.Python.ThermalSim2"
@@ -135,7 +135,7 @@ class PythonInterface:
         self.thrust  = EasyDref('sim/flightmodel/forces/faxil_plug_acf', 'float')
         
         #Drawing update flag
-        world.world_update = False
+        world.world_update = True
          
         # image to mark thermals
         self.ObjectPath = "lib/dynamic/balloon.obj"    
@@ -186,9 +186,9 @@ class PythonInterface:
 
            if not world.thermals_visible :  # if visibility is off, only draw clouds at cloudbase
                
-                self.locations = DrawThermalMap(lat,lon)   #get the locations where to draw the thermal Marker objects..
-           else:
                 self.locations = DrawCloudMap(lat,lon)   #get the locations where to draw the Cloud objects..
+           else:
+                self.locations = DrawThermalMap(lat,lon)   #get the locations where to draw the thermal Marker objects..
 
            world.world_update = True
            #print "number of draw objects = ", len(self.locations)
